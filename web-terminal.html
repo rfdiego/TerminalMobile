@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>TerminalMobile</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<style>
+/* ── Reset & Base ───────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0e0e14;
+  --s1:#14141c;
+  --s2:#1c1c28;
+  --s3:#242434;
+  --border:#2a2a3c;
+  --border2:#343448;
+  --text:#dde1f0;
+  --text2:#7878a0;
+  --text3:#4a4a68;
+  --accent:#00e5a0;
+  --accent2:#00b57e;
+  --accent-glow:rgba(0,229,160,.18);
+  --accent-dim:rgba(0,229,160,.08);
+  --blue:#5b9cf6;
+  --blue-dim:rgba(91,156,246,.08);
+  --red:#ff5677;
+  --yellow:#ffc94d;
+  --purple:#a78bfa;
+  --purple-dim:rgba(167,139,250,.08);
+  --r:8px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ══════════════════════════════════════════════════════════════════════
+   CONNECT SCREEN
+══════════════════════════════════════════════════════════════════════ */
+#connect-screen{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);padding:16px;z-index:10;overflow-y:auto;
+}
+#connect-screen::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px;opacity:.15;pointer-events:none;
+}
+#connect-screen::after{
+  content:'';position:fixed;width:600px;height:600px;
+  background:radial-gradient(circle,var(--accent-glow) 0%,transparent 70%);
+  top:50%;left:50%;transform:translate(-50%,-60%);pointer-events:none;
+}
+
+.connect-card{
+  position:relative;z-index:1;
+  width:100%;max-width:460px;
+  background:var(--s1);border:1px solid var(--border2);border-radius:20px;
+  padding:32px 28px 28px;
+  box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03);
+  margin:auto;
+}
+
+/* ── Brand ── */
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.brand-icon{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent-dim),rgba(0,229,160,.14));
+  border:1px solid rgba(0,229,160,.28);
+  display:flex;align-items:center;justify-content:center;
+}
+.brand-icon svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand-text h1{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.brand-text p{font-size:11px;color:var(--text2);margin-top:1px}
+
+/* ── Stepper indicator ── */
+.stepper{display:flex;align-items:center;margin-bottom:32px}
+.step-item{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0}
+.step-circle{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;
+  border:2px solid var(--border2);color:var(--text3);
+  background:var(--s2);
+  transition:all .3s;position:relative;
+}
+.step-circle .check{display:none}
+.step-circle .num{display:block}
+.step-item.done .step-circle{
+  background:var(--accent-dim);border-color:var(--accent);color:var(--accent);
+}
+.step-item.done .step-circle .check{display:block}
+.step-item.done .step-circle .num{display:none}
+.step-item.active .step-circle{
+  background:var(--accent);border-color:var(--accent);color:#000;
+  box-shadow:0 0 0 4px var(--accent-dim);
+}
+.step-label{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);transition:color .3s;white-space:nowrap}
+.step-item.active .step-label{color:var(--accent)}
+.step-item.done  .step-label{color:var(--text2)}
+.step-line{flex:1;height:2px;background:var(--border2);margin:0 6px;margin-bottom:18px;border-radius:2px;transition:background .3s}
+.step-line.done{background:var(--accent)}
+
+/* ── Step panels ── */
+.steps-viewport{overflow:hidden;position:relative}
+.step-panel{display:none;animation:stepIn .22s ease}
+.step-panel.active{display:block}
+@keyframes stepIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes stepBack{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+.step-panel.back{animation:stepBack .22s ease}
+
+/* ── Fields ── */
+.fields-row{display:flex;gap:10px}
+.fields-row .field-group{flex:1}
+.fields-row .field-group.port{max-width:90px}
+.field-group{margin-bottom:18px}
+.field-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.field-group label{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)}
+.field-wrap{
+  position:relative;display:flex;align-items:center;
+  background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;
+  transition:border .15s,box-shadow .15s;overflow:hidden;
+}
+.field-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.field-icon{display:flex;align-items:center;justify-content:center;width:40px;flex-shrink:0;color:var(--text3);pointer-events:none}
+.field-icon svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.field-wrap input{
+  flex:1;background:transparent;border:none;
+  padding:13px 12px 13px 0;color:var(--text);
+  font-family:'JetBrains Mono','Fira Code','Courier New',monospace;
+  font-size:15px;outline:none;-webkit-appearance:none;min-width:0;
+}
+.field-wrap input::placeholder{color:var(--text3)}
+.toggle-vis{
+  width:40px;flex-shrink:0;border:none;background:transparent;
+  color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:color .15s;padding:0;
+}
+.toggle-vis:hover{color:var(--text2)}
+.toggle-vis svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pin-wrap input{letter-spacing:10px;font-size:20px;padding-top:10px;padding-bottom:10px;text-align:center;padding-right:0}
+.field-divider{height:1px;background:var(--border);margin:6px 0 18px}
+
+/* ── TLS toggle ── */
+.tls-toggle{display:flex;align-items:center;gap:10px;margin-bottom:20px;cursor:pointer;user-select:none}
+.toggle-track{width:36px;height:20px;border-radius:10px;background:var(--s3);border:1px solid var(--border2);position:relative;transition:background .2s,border-color .2s;flex-shrink:0}
+.toggle-track.on{background:rgba(0,229,160,.25);border-color:var(--accent)}
+.toggle-thumb{width:14px;height:14px;border-radius:50%;background:var(--text2);position:absolute;top:2px;left:2px;transition:transform .2s,background .2s}
+.toggle-track.on .toggle-thumb{transform:translateX(16px);background:var(--accent)}
+.tls-label{font-size:13px;color:var(--text2)}
+
+/* ── Nav buttons ── */
+.step-nav{display:flex;gap:10px;margin-top:24px}
+.btn-back{
+  height:46px;padding:0 20px;border:1.5px solid var(--border2);border-radius:10px;
+  background:transparent;color:var(--text2);font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.btn-back:hover{border-color:var(--text2);color:var(--text)}
+.btn-back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn-next{
+  flex:1;height:46px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#000;font-size:14px;font-weight:700;
+  cursor:pointer;transition:opacity .15s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn-next:hover{opacity:.9}
+.btn-next:active{transform:scale(.98)}
+.btn-next:disabled{background:var(--s3);color:var(--text3);cursor:default;transform:none}
+.btn-next svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn-next .spinner{width:15px;height:15px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-next.loading .btn-next-text{display:none}
+.btn-next.loading .spinner{display:block}
+
+/* ── Project cards ── */
+.proj-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.proj-header-title{font-size:13px;font-weight:600;color:var(--text2);letter-spacing:.3px}
+.btn-gh{
+  display:flex;align-items:center;gap:5px;
+  height:26px;padding:0 10px;border-radius:6px;
+  border:1px solid var(--border2);background:var(--s2);
+  color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .15s;
+}
+.btn-gh:hover{border-color:var(--purple);color:var(--purple)}
+.btn-gh svg{width:13px;height:13px;fill:currentColor}
+.project-list{display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto;padding-right:2px}
+.project-card{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-radius:10px;
+  border:1.5px solid var(--border);background:var(--s2);
+  cursor:pointer;transition:all .15s;position:relative;overflow:hidden;
+  min-height:62px;
+}
+.project-card:hover{border-color:var(--border2);background:var(--s3)}
+.project-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.project-card.cloning{pointer-events:none;opacity:.6}
+.proj-icon{
+  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  background:var(--s3);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.proj-info{flex:1;min-width:0;overflow:hidden}
+.proj-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.proj-desc{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.proj-lang{font-size:11px;color:var(--text3);margin-top:3px}
+.proj-badge{
+  flex-shrink:0;font-size:11px;font-weight:700;letter-spacing:.3px;
+  padding:3px 8px;border-radius:4px;white-space:nowrap;
+}
+.proj-badge.cloud{color:var(--blue);background:var(--blue-dim);border:1px solid rgba(91,156,246,.25)}
+.proj-badge.local{color:var(--accent);background:var(--accent-dim);border:1px solid rgba(0,229,160,.25)}
+.proj-badge.cloning-badge{color:var(--yellow);background:rgba(255,201,77,.08);border:1px solid rgba(255,201,77,.25);animation:pulse 1s infinite}
+.proj-badge-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.proj-path-btn{font-size:10px;font-weight:700;letter-spacing:.2px;padding:2px 7px;border-radius:4px;border:1px solid rgba(91,156,246,.35);background:rgba(91,156,246,.08);color:var(--blue);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.proj-path-btn:hover{background:rgba(91,156,246,.16);border-color:rgba(91,156,246,.55)}
+.btn-remove-repos{display:none;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,86,119,.35);background:rgba(255,86,119,.08);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-remove-repos:hover{border-color:rgba(255,86,119,.6);background:rgba(255,86,119,.14)}
+.btn-remove-repos svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* clone-all progress bar */
+.clone-progress{
+  display:none;background:var(--s2);border:1px solid var(--border2);
+  border-radius:10px;padding:12px 14px;margin-bottom:10px;
+}
+.clone-progress.show{display:block}
+.clone-progress-label{font-size:12px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between}
+.clone-progress-label span{color:var(--accent);font-weight:600}
+.clone-bar-track{height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
+.clone-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%}
+/* loading/empty states */
+.proj-loading{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 0;color:var(--text2)}
+.proj-loading .ld-spin{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+.proj-empty{text-align:center;padding:24px 0;color:var(--text3);font-size:13px}
+/* GitHub modal */
+.gh-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.gh-modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.gh-modal h2{font-size:15px;font-weight:700;margin-bottom:4px}
+.gh-modal p{font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5}
+.gh-modal .field-group{margin-bottom:14px}
+.gh-modal-btns{display:flex;gap:8px;margin-top:6px}
+.gh-modal-btns .btn-back{flex-shrink:0}
+.gh-modal-btns .btn-next{flex:1}
+/* Confirm remove modal */
+.confirm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s;pointer-events:none}
+.confirm-backdrop.show{opacity:1;pointer-events:all}
+.confirm-modal{
+  background:var(--s1);border:1px solid var(--border2);border-radius:18px;
+  padding:0;width:100%;max-width:340px;
+  box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03);
+  transform:translateY(12px) scale(.97);transition:transform .22s cubic-bezier(.4,0,.2,1),opacity .22s;opacity:0;overflow:hidden;
+}
+.confirm-backdrop.show .confirm-modal{transform:translateY(0) scale(1);opacity:1}
+.confirm-icon-zone{display:flex;justify-content:center;padding:28px 24px 20px}
+.confirm-icon-ring{
+  width:62px;height:62px;border-radius:50%;
+  background:rgba(255,86,119,.1);border:1.5px solid rgba(255,86,119,.3);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 8px rgba(255,86,119,.06);
+}
+.confirm-icon-ring svg{width:26px;height:26px;stroke:var(--red);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.confirm-body{padding:0 24px 6px;text-align:center}
+.confirm-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px}
+.confirm-desc{font-size:13px;color:var(--text2);line-height:1.6}
+.confirm-desc strong{color:var(--red)}
+.confirm-divider{height:1px;background:var(--border);margin:22px 0 0}
+.confirm-actions{display:flex}
+.confirm-btn{
+  flex:1;height:50px;border:none;background:transparent;
+  font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.confirm-btn.cancel{color:var(--text2);border-right:1px solid var(--border)}
+.confirm-btn.cancel:hover{background:var(--s2);color:var(--text)}
+.confirm-btn.danger{color:var(--red)}
+.confirm-btn.danger:hover{background:rgba(255,86,119,.1)}
+.confirm-btn.danger.loading-state .btn-label{display:none}
+.confirm-btn.danger.loading-state .btn-spinner{display:block}
+.confirm-btn .btn-spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,86,119,.3);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite}
+.confirm-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Launch sequence ── */
+#launch-seq{display:none;margin-bottom:4px}
+.launch-step{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;border-radius:10px;
+  border:1.5px solid var(--border);background:var(--s2);
+  margin-bottom:10px;transition:border-color .3s,background .3s;
+}
+.launch-step.active{border-color:var(--accent);background:var(--accent-dim)}
+.launch-step.done{border-color:var(--border);background:var(--s2);opacity:.7}
+.ls-icon{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.ls-icon.pending{background:var(--s3);border:2px solid var(--border2)}
+.ls-icon.spinning{background:var(--accent-dim);border:2px solid var(--accent)}
+.ls-icon.checked{background:var(--accent);border:2px solid var(--accent)}
+.ls-spin{width:12px;height:12px;border:2px solid rgba(0,229,160,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+.ls-check svg{width:12px;height:12px;stroke:#000;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.launch-label{flex:1;font-size:14px;font-weight:500;color:var(--text2);transition:color .3s}
+.launch-step.active .launch-label{color:var(--text);font-weight:600}
+.launch-step.done  .launch-label{color:var(--text3)}
+.launch-sublabel{font-size:11px;color:var(--text3);margin-top:1px}
+.launch-step.active .launch-sublabel{color:var(--accent2)}
+
+/* ── Tech cards ── */
+.step3-label{font-size:13px;color:var(--text2);margin-bottom:18px;text-align:center}
+.tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tech-card{
+  padding:24px 16px;border-radius:14px;
+  border:1.5px solid var(--border2);background:var(--s2);
+  cursor:pointer;transition:all .2s;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  position:relative;overflow:hidden;
+}
+.tech-card::before{
+  content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;
+}
+.tech-card.claude::before{background:radial-gradient(circle at 50% 0%,var(--accent-dim),transparent 70%)}
+.tech-card.openclaude::before{background:radial-gradient(circle at 50% 0%,var(--purple-dim),transparent 70%)}
+.tech-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.tech-card:hover::before{opacity:1}
+.tech-card:active{transform:scale(.97)}
+.tech-card.claude:hover{border-color:rgba(0,229,160,.45)}
+.tech-card.openclaude:hover{border-color:rgba(167,139,250,.45)}
+.tech-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;border:1px solid var(--border2);background:var(--s3);
+}
+.tech-card.claude .tech-icon{border-color:rgba(0,229,160,.3);background:rgba(0,229,160,.07)}
+.tech-card.openclaude .tech-icon{border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.07)}
+.tech-name{font-size:15px;font-weight:700;color:var(--text)}
+.tech-card.claude .tech-name{color:var(--accent)}
+.tech-card.openclaude .tech-name{color:var(--purple)}
+.tech-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.tech-start{
+  margin-top:2px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  display:flex;align-items:center;gap:4px;
+}
+.tech-card.claude .tech-start{color:var(--accent)}
+.tech-card.openclaude .tech-start{color:var(--purple)}
+.tech-start svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Error ── */
+.connect-err{font-size:12px;color:var(--red);margin-top:10px;min-height:16px;text-align:center}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TERMINAL SCREEN
+══════════════════════════════════════════════════════════════════════ */
+#terminal-screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.top-bar{display:flex;align-items:center;gap:8px;padding:0 12px;height:46px;flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--border)}
+.conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s;background:var(--text3)}
+.conn-dot.connected{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.conn-dot.connecting{background:var(--yellow);animation:pulse 1s infinite}
+.conn-dot.error{background:var(--red)}
+.conn-label{font-size:12px;font-weight:600;color:var(--text2);transition:color .3s}
+.conn-label.connected{color:var(--accent)}
+.conn-label.connecting{color:var(--yellow)}
+.conn-label.error{color:var(--red)}
+.conn-sep{color:var(--text3);font-size:12px}
+.conn-sess{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.top-bar-space{flex:1}
+.top-btn{width:32px;height:32px;border:none;border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;flex-shrink:0}
+.top-btn:hover{background:var(--s2);color:var(--text)}
+.top-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.term-wrap{flex:1;overflow:hidden;position:relative;background:var(--bg);padding:2px 4px 0}
+#xterm{width:100%;height:100%}
+.fab-bottom{position:absolute;right:12px;bottom:12px;width:36px;height:36px;border-radius:50%;background:var(--s2);border:1px solid var(--border2);color:var(--accent);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4);transition:opacity .2s;z-index:5}
+.fab-bottom svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.fab-bottom.show{display:flex}
+.quick-bar{display:flex;align-items:center;gap:5px;padding:5px 8px calc(5px + var(--safe-bottom));background:var(--s1);border-top:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.quick-bar::-webkit-scrollbar{display:none}
+.qkey{flex-shrink:0;height:32px;padding:0 12px;border:1px solid var(--border2);border-radius:6px;background:var(--s2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer;white-space:nowrap;transition:background .1s,border-color .1s,transform .08s;display:flex;align-items:center;gap:4px}
+.qkey:active{background:var(--s3);transform:scale(.95)}
+.qkey.accent{border-color:rgba(0,229,160,.35);color:var(--accent)}
+.qkey svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.qkey-divider{width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px}
+
+/* ── Sessions Drawer ── */
+.drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:20;display:none;opacity:0;transition:opacity .25s}
+.drawer-backdrop.open{display:block}
+.drawer-backdrop.visible{opacity:1}
+.drawer{position:absolute;right:0;top:0;bottom:0;width:min(320px,92vw);background:var(--s1);border-left:1px solid var(--border2);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);padding-bottom:var(--safe-bottom)}
+.drawer-backdrop.visible .drawer{transform:translateX(0)}
+.drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.drawer-title{font-size:15px;font-weight:700}
+.drawer-close{width:30px;height:30px;border:none;background:var(--s2);border-radius:6px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.drawer-close svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.drawer-body{flex:1;overflow-y:auto;padding:10px}
+.session-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);border:1px solid transparent;margin-bottom:6px;cursor:pointer;transition:background .15s,border-color .15s;background:var(--s2)}
+.session-item.active{border-color:var(--accent);background:var(--accent-dim)}
+.session-item:hover:not(.active){background:var(--s3)}
+.sess-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sess-id{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-badge{font-size:10px;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(0,229,160,.25);border-radius:4px;padding:1px 6px;flex-shrink:0}
+.sess-kill{width:26px;height:26px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:5px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;flex-shrink:0}
+.sess-kill:hover{background:rgba(255,86,119,.15);color:var(--red)}
+.sess-kill svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+.drawer-footer{padding:12px 10px 0;border-top:1px solid var(--border);flex-shrink:0}
+.btn-new-sess{width:100%;height:40px;border:1px dashed rgba(0,229,160,.35);border-radius:var(--r);background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-new-sess:hover{background:rgba(0,229,160,.14);border-color:rgba(0,229,160,.5)}
+.btn-new-sess svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* ── Menu ── */
+.menu-wrap{position:relative}
+.dropdown{position:absolute;right:0;top:calc(100% + 6px);background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:5px;min-width:180px;box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:30;display:none;animation:fadeDown .15s ease}
+.dropdown.open{display:block}
+.menu-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--text);transition:background .12s;border:none;background:transparent;width:100%;text-align:left}
+.menu-item:hover{background:var(--s3)}
+.menu-item.danger{color:var(--red)}
+.menu-item svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.menu-sep{height:1px;background:var(--border);margin:4px 0}
+.font-ctrl{display:flex;align-items:center;justify-content:space-between;padding:8px 12px}
+.font-ctrl span{font-size:13px;color:var(--text2)}
+.font-ctrl-btns{display:flex;gap:4px}
+.font-btn{width:28px;height:28px;border:1px solid var(--border2);border-radius:5px;background:var(--s3);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.font-btn:hover{background:var(--s2)}
+.font-size-val{font-size:12px;color:var(--accent);min-width:28px;text-align:center;font-family:monospace}
+
+/* ── Animations ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.xterm-screen{padding:0 !important}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ CONNECT ══════════════════════════ -->
+<div id="connect-screen">
+  <div class="connect-card">
+
+    <!-- Brand -->
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>TerminalMobile</h1>
+        <p>Terminal remoto seguro</p>
+      </div>
+    </div>
+
+    <!-- Stepper indicator -->
+    <div class="stepper">
+      <div class="step-item active" id="si-1">
+        <div class="step-circle">
+          <span class="num">1</span>
+          <svg class="check" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span class="step-label">Conexão</span>
+      </div>
+      <div class="step-line" id="sl-1"></div>
+      <div class="step-item" id="si-2">
+        <div class="step-circle">
+          <span class="num">2</span>
+          <svg class="check" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span class="step-label">Projeto</span>
+      </div>
+      <div class="step-line" id="sl-2"></div>
+      <div class="step-item" id="si-3">
+        <div class="step-circle">
+          <span class="num">3</span>
+          <svg class="check" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span class="step-label">Tecnologia</span>
+      </div>
+    </div>
+
+    <!-- ── Step 1: Conexão ── -->
+    <div class="step-panel active" id="sp-1">
+      <div class="fields-row">
+        <div class="field-group">
+          <div class="field-label-row"><label>Host / IP</label></div>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </span>
+            <input id="inp-host" value="192.168.15.40" placeholder="192.168.x.x" spellcheck="false" autocomplete="off"/>
+          </div>
+        </div>
+        <div class="field-group port">
+          <div class="field-label-row"><label>Porta</label></div>
+          <div class="field-wrap">
+            <input id="inp-port" type="number" value="8765" autocomplete="off" style="padding-left:12px"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-divider"></div>
+
+      <div class="field-group">
+        <div class="field-label-row"><label>PIN de acesso</label></div>
+        <div class="field-wrap pin-wrap">
+          <span class="field-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input id="inp-token" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="· · · ·" spellcheck="false" autocomplete="off"/>
+          <button class="toggle-vis" type="button" onclick="togglePinVis()" title="Mostrar/ocultar PIN">
+            <svg id="ico-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="ico-eye-off" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <label class="tls-toggle" onclick="toggleTLS()">
+        <div class="toggle-track" id="tls-track"><div class="toggle-thumb"></div></div>
+        <span class="tls-label">Usar WSS (TLS / HTTPS)</span>
+      </label>
+
+      <div class="step-nav">
+        <button class="btn-next" id="btn-step1-next" onclick="tryGoStep2()">
+          <span class="btn-next-text">Próximo</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Step 2: Projeto ── -->
+    <div class="step-panel" id="sp-2">
+      <div class="proj-header">
+        <span class="proj-header-title">Selecione um projeto</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-remove-repos" id="btn-remove-repos" onclick="removeAllRepos()">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Remover todos
+          </button>
+          <button class="btn-gh" onclick="openGhModal()">
+            <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub
+          </button>
+        </div>
+      </div>
+      <div class="clone-progress" id="clone-progress">
+        <div class="clone-progress-label">
+          <span id="clone-prog-text">Clonando repos...</span>
+          <span id="clone-prog-count"></span>
+        </div>
+        <div class="clone-bar-track"><div class="clone-bar-fill" id="clone-bar"></div></div>
+      </div>
+      <div class="project-list" id="project-list">
+        <div class="proj-loading"><div class="ld-spin"></div><span>Carregando projetos...</span></div>
+      </div>
+      <div class="step-nav">
+        <button class="btn-back" onclick="goStep(1)">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Voltar
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Step 3: Tecnologia ── -->
+    <div class="step-panel" id="sp-3">
+      <p class="step3-label" id="step3-label">Escolha a tecnologia para iniciar o terminal</p>
+
+      <!-- tech selection -->
+      <div class="tech-grid" id="tech-grid"></div>
+
+      <!-- launch sequence (shown after clicking a tech) -->
+      <div id="launch-seq"></div>
+
+      <div class="step-nav" style="margin-top:16px" id="step3-nav">
+        <button class="btn-back" onclick="resetStep3()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Voltar
+        </button>
+      </div>
+    </div>
+
+    <div class="connect-err" id="connect-err"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ TERMINAL ══════════════════════════ -->
+<div id="terminal-screen">
+  <div class="top-bar">
+    <div class="conn-dot" id="s-dot"></div>
+    <span class="conn-label" id="s-label">Disconnected</span>
+    <span class="conn-sep" id="s-sep" style="display:none">/</span>
+    <span class="conn-sess" id="s-sess" style="display:none"></span>
+    <div class="top-bar-space"></div>
+    <button class="top-btn" onclick="openDrawer()" title="Sessões">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>
+    </button>
+    <div class="menu-wrap">
+      <button class="top-btn" id="menu-btn" onclick="toggleMenu()" title="Menu">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+      </button>
+      <div class="dropdown" id="dropdown">
+        <div class="font-ctrl">
+          <span>Fonte</span>
+          <div class="font-ctrl-btns">
+            <button class="font-btn" onclick="changeFontSize(-1)">−</button>
+            <span class="font-size-val" id="font-val">13</span>
+            <button class="font-btn" onclick="changeFontSize(1)">+</button>
+          </div>
+        </div>
+        <div class="menu-sep"></div>
+        <button class="menu-item" onclick="doClear()">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Limpar terminal
+        </button>
+        <button class="menu-item" onclick="doCopy()">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar saída
+        </button>
+        <div class="menu-sep"></div>
+        <button class="menu-item danger" onclick="doDisconnect()">
+          <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>Desconectar
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="term-wrap">
+    <div id="xterm"></div>
+    <div class="fab-bottom" id="fab-scroll" onclick="scrollBottom()">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+  <div class="quick-bar">
+    <button class="qkey accent" onclick="sendCtrl(3)">Ctrl+C</button>
+    <button class="qkey" onclick="sendCtrl(4)">Ctrl+D</button>
+    <button class="qkey" onclick="sendRaw('\t')">Tab</button>
+    <div class="qkey-divider"></div>
+    <button class="qkey" onclick="sendRaw('\x1b[A')"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+    <button class="qkey" onclick="sendRaw('\x1b[B')"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+    <button class="qkey" onclick="sendRaw('\x1b[D')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="qkey" onclick="sendRaw('\x1b[C')"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="qkey-divider"></div>
+    <button class="qkey" onclick="sendRaw('\x1b')">ESC</button>
+    <button class="qkey" onclick="sendRaw('\x1b[H')">Home</button>
+    <button class="qkey" onclick="sendRaw('\x1b[F')">End</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ GITHUB MODAL ══════════════════════ -->
+<div class="gh-modal-backdrop" id="gh-modal" style="display:none" onclick="onGhBackdrop(event)">
+  <div class="gh-modal" id="gh-modal-box">
+    <h2>Conectar ao GitHub</h2>
+    <p>Cole um <strong>Personal Access Token</strong> com permissão <code>repo</code>.<br>
+       O token fica salvo apenas neste navegador.</p>
+    <div class="field-group">
+      <div class="field-label-row"><label>Personal Access Token</label></div>
+      <div class="field-wrap">
+        <span class="field-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <input id="gh-token-inp" type="password" placeholder="ghp_xxxxxxxxxxxx" spellcheck="false" autocomplete="off"/>
+        <button class="toggle-vis" type="button" onclick="toggleGhVis()">
+          <svg id="gh-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg id="gh-eye-off" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="connect-err" id="gh-err"></div>
+    <div class="gh-modal-btns">
+      <button class="btn-back" onclick="closeGhModal()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <button class="btn-next" id="gh-confirm-btn" onclick="confirmGhToken()">
+        <span class="btn-next-text">Buscar repos</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ CONFIRM REMOVE MODAL ═════════════ -->
+<div class="confirm-backdrop" id="confirm-remove-backdrop" onclick="onConfirmBackdrop(event)">
+  <div class="confirm-modal" id="confirm-remove-modal">
+    <div class="confirm-icon-zone">
+      <div class="confirm-icon-ring">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-title">Remover repositórios locais?</div>
+      <div class="confirm-desc">
+        Todos os repositórios clonados serão <strong>excluídos permanentemente</strong> do disco.
+        Os repos continuam disponíveis no GitHub e podem ser baixados novamente.
+      </div>
+    </div>
+    <div class="confirm-divider"></div>
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" onclick="closeConfirmRemove()">Cancelar</button>
+      <button class="confirm-btn danger" id="confirm-remove-btn" onclick="doRemoveAllRepos()">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        <span class="btn-label">Remover tudo</span>
+        <div class="btn-spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ SESSIONS DRAWER ══════════════════ -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="onBackdropClick(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">Sessões</span>
+      <button class="drawer-close" onclick="closeDrawer()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="sessions-list"></div>
+    <div class="drawer-footer">
+      <button class="btn-new-sess" onclick="newSession()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova sessão
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+const TECHS = [
+  { id:'claude',      name:'Claude Code',    desc:'CLI oficial da Anthropic',                       icon:'🤖', cls:'claude',     command:'claude --dangerously-skip-permissions'  },
+  { id:'claude-auto', name:'Claude (auto)',  desc:'Sem confirmações manuais de permissão',          icon:'⚡', cls:'openclaude', command:'claude --dangerously-skip-permissions'  },
+];
+
+// Language → emoji
+const LANG_ICON = {
+  JavaScript:'🟨', TypeScript:'🔷', 'React':'⚛️', 'React/TS':'⚛️',
+  Kotlin:'🟣', Java:'☕', Python:'🐍', Go:'🐹', 'C#':'🔵',
+  Ruby:'💎', Rust:'🦀', PHP:'🐘', Shell:'⚙️', Dart:'🎯',
+  Swift:'🍎', 'C++':'⚙️', C:'⚙️', Docker:'🐳',
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let ws             = null;
+let term           = null;
+let fit            = null;
+let sessionId      = '';
+let sessions       = [];
+let fontSize       = parseInt(localStorage.getItem('tm_fs') || '13');
+let tlsOn          = false;
+let selectedProj   = null;   // full repo object
+let selectedTech   = null;
+let currentStep    = 1;
+let goingBack      = false;
+let repoList       = [];     // loaded repos for step 2
+let ghToken        = localStorage.getItem('tm_gh_token') || '';
+
+// server base URL (set when user fills step 1)
+let serverBase     = '';
+
+// ── Repo helpers ──────────────────────────────────────────────────────────────
+function apiUrl(p) { return serverBase + p; }
+function apiHeaders() {
+  return { 'Content-Type':'application/json', 'Authorization':'Bearer ' + document.getElementById('inp-token').value.trim() };
+}
+
+let clonePoller = null;
+
+async function loadRepos() {
+  const list = document.getElementById('project-list');
+  list.innerHTML = '<div class="proj-loading"><div class="ld-spin"></div><span>Buscando projetos...</span></div>';
+  try {
+    const res  = await fetch(apiUrl('/api/repos'), { headers: apiHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    repoList = data.repos || [];
+    // show/hide GitHub button depending on whether server already has token
+    document.querySelector('.btn-gh').style.display = data.hasGithubToken ? 'none' : '';
+    renderRepos();
+    // auto-start clone-all for non-cloned repos
+    const hasUncloned = repoList.some(r => !r.cloned);
+    if (hasUncloned) startCloneAll();
+  } catch (e) {
+    list.innerHTML = `<div class="proj-empty">Erro ao carregar:<br><small>${e.message}</small></div>`;
+  }
+}
+
+async function startCloneAll() {
+  try {
+    const res  = await fetch(apiUrl('/api/clone-all'), { method:'POST', headers: apiHeaders() });
+    const data = await res.json();
+    if (!res.ok || !data.started) return;
+    if (data.total > 0) startClonePoller();
+  } catch {}
+}
+
+function startClonePoller() {
+  stopClonePoller();
+  clonePoller = setInterval(async () => {
+    try {
+      const res  = await fetch(apiUrl('/api/clone-status'), { headers: apiHeaders() });
+      const st   = await res.json();
+      updateCloneBar(st);
+      if (!st.running) {
+        stopClonePoller();
+        // refresh repo list after all cloned
+        const res2  = await fetch(apiUrl('/api/repos'), { headers: apiHeaders() });
+        const data2 = await res2.json();
+        repoList = data2.repos || repoList;
+        renderRepos();
+        document.getElementById('clone-progress').classList.remove('show');
+      }
+    } catch { stopClonePoller(); }
+  }, 1000);
+}
+
+function stopClonePoller() {
+  if (clonePoller) { clearInterval(clonePoller); clonePoller = null; }
+}
+
+function updateCloneBar(st) {
+  const box  = document.getElementById('clone-progress');
+  const txt  = document.getElementById('clone-prog-text');
+  const cnt  = document.getElementById('clone-prog-count');
+  const bar  = document.getElementById('clone-bar');
+  if (!st.total) return;
+  box.classList.add('show');
+  const pct = Math.round((st.done / st.total) * 100);
+  txt.textContent  = st.current ? `Clonando: ${st.current}` : 'Clonando repos...';
+  cnt.textContent  = `${st.done}/${st.total}`;
+  bar.style.width  = pct + '%';
+  // update badges live
+  repoList.forEach((r, i) => {
+    if (r.cloned) return;
+    const card = document.getElementById('pcard-' + i);
+    if (!card) return;
+    const badge = card.querySelector('.proj-badge');
+    if (!badge) return;
+    if (st.current === r.name) {
+      badge.className = 'proj-badge cloning-badge'; badge.textContent = 'clonando...';
+    }
+  });
+}
+
+function renderRepos() {
+  const list = document.getElementById('project-list');
+  const hasLocal = repoList.some(r => r.cloned);
+  const removeBtn = document.getElementById('btn-remove-repos');
+  if (removeBtn) removeBtn.style.display = hasLocal ? 'flex' : 'none';
+  if (!repoList.length) {
+    list.innerHTML = '<div class="proj-empty">Nenhum projeto encontrado.<br>Conecte o GitHub para buscar seus repos.</div>';
+    return;
+  }
+  list.innerHTML = repoList.map((r, i) => {
+    const icon  = LANG_ICON[r.language] || '📁';
+    const badge = r.cloned
+      ? `<div class="proj-badge-col">
+           <span class="proj-badge local">local</span>
+           <button class="proj-path-btn" data-path="${escHtml(r.path || '')}" onclick="openFolder(event,this.dataset.path)">Path</button>
+         </div>`
+      : '<span class="proj-badge cloud">↓ clonar</span>';
+    const lang  = r.language ? `<div class="proj-lang">${r.language}${r.private ? ' · 🔒' : ''}</div>` : '';
+    return `
+      <div class="project-card" id="pcard-${i}" onclick="selectProject(${i})">
+        <div class="proj-icon">${icon}</div>
+        <div class="proj-info">
+          <div class="proj-name">${escHtml(r.name)}</div>
+          <div class="proj-desc">${escHtml(r.desc || r.remote || r.path || '')}</div>
+          ${lang}
+        </div>
+        ${badge}
+      </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function selectProject(idx) {
+  const r = repoList[idx];
+  if (!r || !r.cloned) return; // still cloning, ignore click
+  selectedProj = r;
+  goStep(3);
+}
+
+// ── GitHub modal ───────────────────────────────────────────────────────────────
+function openGhModal() {
+  document.getElementById('gh-token-inp').value = '';
+  document.getElementById('gh-err').textContent = '';
+  document.getElementById('gh-modal').style.display = 'flex';
+}
+
+function closeGhModal() { document.getElementById('gh-modal').style.display = 'none'; }
+function onGhBackdrop(e) { if (e.target === document.getElementById('gh-modal')) closeGhModal(); }
+
+function toggleGhVis() {
+  const inp  = document.getElementById('gh-token-inp');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  document.getElementById('gh-eye').style.display     = show ? 'none' : '';
+  document.getElementById('gh-eye-off').style.display = show ? ''     : 'none';
+}
+
+async function confirmGhToken() {
+  const token = document.getElementById('gh-token-inp').value.trim();
+  if (!token) { document.getElementById('gh-err').textContent = 'Cole o token.'; return; }
+  const btn = document.getElementById('gh-confirm-btn');
+  btn.disabled = true; btn.classList.add('loading');
+  document.getElementById('gh-err').textContent = '';
+  try {
+    // save on server (.env) + get repos + start clone-all
+    const res  = await fetch(apiUrl('/api/github-token'), { method:'POST', headers: apiHeaders(), body: JSON.stringify({ token }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ' + res.status);
+    repoList = data.repos || [];
+    closeGhModal();
+    document.querySelector('.btn-gh').style.display = 'none'; // token saved, hide button
+    renderRepos();
+    const hasUncloned = repoList.some(r => !r.cloned);
+    if (hasUncloned) startClonePoller(); // clone-all already started on server
+  } catch(e) {
+    document.getElementById('gh-err').textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
+  }
+}
+
+// ── Folder / repo management ──────────────────────────────────────────────────
+async function openFolder(e, path) {
+  e.stopPropagation();
+  if (!path) return;
+  try {
+    await fetch(apiUrl('/api/open-folder'), { method:'POST', headers: apiHeaders(), body: JSON.stringify({ path }) });
+  } catch {}
+}
+
+function removeAllRepos() {
+  document.getElementById('confirm-remove-backdrop').classList.add('show');
+}
+function closeConfirmRemove() {
+  document.getElementById('confirm-remove-backdrop').classList.remove('show');
+}
+function onConfirmBackdrop(e) {
+  if (e.target === document.getElementById('confirm-remove-backdrop')) closeConfirmRemove();
+}
+async function doRemoveAllRepos() {
+  const btn = document.getElementById('confirm-remove-btn');
+  btn.disabled = true; btn.classList.add('loading-state');
+  try {
+    const res  = await fetch(apiUrl('/api/remove-all-repos'), { method:'POST', headers: apiHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ' + res.status);
+    closeConfirmRemove();
+    await loadRepos(); // refresh from server — reflects what was actually deleted
+    if (data.failed?.length) {
+      setErr(`${data.failed.length} pasta(s) em uso e não removida(s): ${data.failed.join(', ')}`);
+    }
+  } catch(e) {
+    closeConfirmRemove();
+    setErr('Erro ao remover: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading-state');
+  }
+}
+
+// ── Tech cards ────────────────────────────────────────────────────────────────
+function renderTechs() {
+  document.getElementById('tech-grid').innerHTML = TECHS.map(t => `
+    <div class="tech-card ${t.cls}" onclick="selectTech('${t.id}')">
+      <div class="tech-icon">${t.icon}</div>
+      <div class="tech-name">${t.name}</div>
+      <div class="tech-desc">${t.desc}</div>
+      <div class="tech-start">Iniciar<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>`).join('');
+}
+
+function resetStep3() {
+  // if launch already started, go back to project selection
+  document.getElementById('launch-seq').style.display    = 'none';
+  document.getElementById('launch-seq').innerHTML        = '';
+  document.getElementById('tech-grid').style.display     = '';
+  document.getElementById('step3-label').textContent     = 'Escolha a tecnologia para iniciar o terminal';
+  document.getElementById('step3-nav').querySelector('.btn-back').onclick = () => goStep(2);
+  goStep(2);
+}
+
+// Launch steps definition
+function getLaunchSteps() {
+  return [
+    { label: 'Projeto selecionado',       sub: selectedProj?.name || '',          duration:  700 },
+    { label: 'Navegando para a pasta',    sub: selectedProj?.path || '',          duration: 1000 },
+    { label: 'Atualizando repositório',   sub: 'git pull',                        duration: 2500 },
+    { label: 'Iniciando ' + (selectedTech?.name || ''), sub: selectedTech?.command || '', duration: 1200 },
+  ];
+}
+
+function iconPending() {
+  return `<div class="ls-icon pending"><div style="width:10px;height:10px;border-radius:50%;background:var(--border2)"></div></div>`;
+}
+function iconSpinning() {
+  return `<div class="ls-icon spinning"><div class="ls-spin"></div></div>`;
+}
+function iconDone() {
+  return `<div class="ls-icon checked"><div class="ls-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
+}
+
+function selectTech(id) {
+  selectedTech = TECHS.find(t => t.id === id);
+
+  // hide tech grid, show sequence
+  document.getElementById('tech-grid').style.display  = 'none';
+  document.getElementById('step3-label').textContent  = 'Iniciando sessão...';
+  // disable back button during launch
+  document.getElementById('step3-nav').querySelector('.btn-back').onclick = () => {};
+
+  const steps   = getLaunchSteps();
+  const seq     = document.getElementById('launch-seq');
+  seq.style.display = 'block';
+  seq.innerHTML = steps.map((s, i) => `
+    <div class="launch-step" id="ls-${i}">
+      ${iconPending()}
+      <div>
+        <div class="launch-label">${s.label}</div>
+        ${s.sub ? `<div class="launch-sublabel">${escHtml(s.sub)}</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  let delay = 200;
+  steps.forEach((step, i) => {
+    // activate
+    setTimeout(() => {
+      const el = document.getElementById('ls-' + i);
+      if (!el) return;
+      el.classList.add('active');
+      el.querySelector('.ls-icon').outerHTML = iconSpinning();
+    }, delay);
+    delay += step.duration;
+    // complete
+    setTimeout(() => {
+      const el = document.getElementById('ls-' + i);
+      if (!el) return;
+      el.classList.remove('active');
+      el.classList.add('done');
+      el.querySelector('.ls-icon').outerHTML = iconDone();
+    }, delay - 150);
+  });
+
+  // open terminal after all steps
+  setTimeout(() => doConnect(), delay);
+}
+
+// ── Step 1 validation ─────────────────────────────────────────────────────────
+async function tryGoStep2() {
+  const host  = document.getElementById('inp-host').value.trim();
+  const port  = document.getElementById('inp-port').value.trim();
+  const token = document.getElementById('inp-token').value.trim();
+  if (!host || !port || !token) { setErr('Preencha host, porta e PIN.'); return; }
+  setErr('');
+
+  const base = (tlsOn ? 'https' : 'http') + '://' + host + ':' + port;
+  const btn  = document.getElementById('btn-step1-next');
+  btn.disabled = true; btn.classList.add('loading');
+
+  try {
+    const res = await fetch(base + '/api/clone-status', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.status === 401) { setErr('PIN incorreto. Verifique e tente novamente.'); return; }
+    goStep(2);
+  } catch (e) {
+    const msg = e.name === 'TimeoutError'
+      ? 'Tempo esgotado. Verifique host e porta.'
+      : 'Não foi possível conectar. Verifique se o servidor está rodando.';
+    setErr(msg);
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
+  }
+}
+
+// ── Stepper navigation ────────────────────────────────────────────────────────
+function goStep(n) {
+  if (n === 2) {
+    const host  = document.getElementById('inp-host').value.trim();
+    const port  = document.getElementById('inp-port').value.trim();
+    const token = document.getElementById('inp-token').value.trim();
+    if (!host || !port || !token) { setErr('Preencha host, porta e PIN.'); return; }
+    setErr('');
+    serverBase = (tlsOn ? 'https' : 'http') + '://' + host + ':' + port;
+  }
+
+  goingBack = n < currentStep;
+  const oldPanel = document.getElementById('sp-' + currentStep);
+  const newPanel = document.getElementById('sp-' + n);
+
+  oldPanel.classList.remove('active');
+  oldPanel.style.display = 'none';
+
+  newPanel.style.display = 'block';
+  newPanel.classList.remove('back');
+  if (goingBack) newPanel.classList.add('back');
+  requestAnimationFrame(() => newPanel.classList.add('active'));
+
+  updateStepIndicators(n);
+  currentStep = n;
+
+  if (n === 2) loadRepos();
+  if (n === 3) renderTechs();
+}
+
+function updateStepIndicators(active) {
+  for (let i = 1; i <= 3; i++) {
+    const item = document.getElementById('si-' + i);
+    item.classList.remove('active', 'done');
+    if (i < active)  item.classList.add('done');
+    if (i === active) item.classList.add('active');
+  }
+  for (let i = 1; i <= 2; i++) {
+    document.getElementById('sl-' + i).classList.toggle('done', i < active);
+  }
+}
+
+// ── xterm ─────────────────────────────────────────────────────────────────────
+function initTerm() {
+  if (term) { term.dispose(); term = null; }
+  term = new Terminal({
+    theme:{
+      background:'#0e0e14',foreground:'#dde1f0',cursor:'#00e5a0',cursorAccent:'#0e0e14',
+      selectionBackground:'rgba(0,229,160,.22)',
+      black:'#1e1e2a',red:'#ff5677',green:'#00e5a0',yellow:'#ffc94d',
+      blue:'#5b9cf6',magenta:'#a78bfa',cyan:'#22d3ee',white:'#dde1f0',
+      brightBlack:'#4a4a68',brightRed:'#ff7096',brightGreen:'#34efa8',
+      brightYellow:'#ffd77a',brightBlue:'#7ab4f8',brightMagenta:'#c4abfc',
+      brightCyan:'#67e8f9',brightWhite:'#f0f0ff',
+    },
+    fontFamily:'"JetBrains Mono","Fira Code","Cascadia Code","Courier New",monospace',
+    fontSize, lineHeight:1.25, cursorBlink:true, scrollback:8000,
+    convertEol:false, allowTransparency:false, macOptionIsMeta:true,
+  });
+  fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(document.getElementById('xterm'));
+  doFit();
+  term.onData(d => sendRaw(d));
+  term.onResize(({cols,rows}) => sendMsg({type:'resize',cols,rows}));
+  term.onScroll(() => checkScrollFab());
+  window.addEventListener('resize', doFit);
+}
+
+function doFit() { if(fit&&term) try{fit.fit()}catch(e){} }
+
+function checkScrollFab() {
+  if (!term) return;
+  const el = document.getElementById('fab-scroll');
+  el.classList.toggle('show', term.buffer.active.viewportY < term.buffer.active.length - term.rows - 2);
+}
+function scrollBottom() { if(term) term.scrollToBottom(); }
+
+// ── PIN show/hide ─────────────────────────────────────────────────────────────
+function togglePinVis() {
+  const inp = document.getElementById('inp-token');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  document.getElementById('ico-eye').style.display     = show ? 'none' : '';
+  document.getElementById('ico-eye-off').style.display = show ? ''     : 'none';
+}
+
+// ── TLS toggle ────────────────────────────────────────────────────────────────
+function toggleTLS() {
+  tlsOn = !tlsOn;
+  document.getElementById('tls-track').classList.toggle('on', tlsOn);
+}
+
+// ── Connect ───────────────────────────────────────────────────────────────────
+function doConnect() {
+  const host  = document.getElementById('inp-host').value.trim();
+  const port  = document.getElementById('inp-port').value.trim();
+  const token = document.getElementById('inp-token').value.trim();
+  setErr('');
+
+  document.getElementById('connect-screen').style.display = 'none';
+  document.getElementById('terminal-screen').style.display = 'flex';
+  initTerm();
+  setStatus('connecting');
+
+  const url = (tlsOn ? 'wss' : 'ws') + '://' + host + ':' + port;
+  try { ws = new WebSocket(url); } catch(e) { onWsError('URL inválida'); return; }
+
+  ws.onopen = () => { sendMsg({type:'auth', token, cols:term.cols, rows:term.rows}); };
+
+  ws.onmessage = e => {
+    let msg; try{msg=JSON.parse(e.data);}catch{return;}
+    switch(msg.type) {
+      case 'auth_success':
+        sessionId = msg.sessionId; sessions = msg.sessions||[];
+        setStatus('connected'); renderSessions();
+        // cd → git pull → launch tech
+        if (selectedTech) {
+          const cmd = selectedProj?.path
+            ? `cd "${selectedProj.path}"; git pull; ${selectedTech.command.trimEnd()}\r`
+            : selectedTech.command.trimEnd() + '\r';
+          setTimeout(() => sendRaw(cmd), 400);
+        }
+        break;
+      case 'auth_failed':
+        term.writeln('\r\n\x1b[31m[Auth falhou: '+(msg.message||'')+']\x1b[0m');
+        wsClose(true); break;
+      case 'output': if(term) term.write(msg.data); break;
+      case 'session_created':
+      case 'session_switched':
+        sessionId=msg.sessionId; sessions=msg.sessions||sessions;
+        updateTopSession(); renderSessions(); break;
+      case 'sessions': sessions=msg.list||[]; renderSessions(); break;
+      case 'session_exit':
+        if(term) term.writeln('\r\n\x1b[33m[Sessão encerrada: código '+msg.code+']\x1b[0m'); break;
+      case 'error':
+        if(term) term.writeln('\r\n\x1b[31m[Erro: '+(msg.message||'')+']\x1b[0m'); break;
+    }
+  };
+
+  ws.onclose = e => {
+    setStatus('error');
+    if(term) term.writeln('\r\n\x1b[90m[Desconectado (código '+e.code+') — atualize para reconectar]\x1b[0m');
+    ws=null;
+  };
+
+  ws.onerror = () => onWsError('Não foi possível conectar. Verifique host, porta e se o servidor está rodando.');
+}
+
+function onWsError(msg) {
+  setStatus('error');
+  if(term) term.writeln('\r\n\x1b[31m['+msg+']\x1b[0m');
+  ws=null; showConnect(); setErr(msg);
+}
+
+function wsClose(backToForm) {
+  if(ws){ws.close(1000);ws=null;}
+  setStatus('disconnected');
+  if(backToForm) showConnect();
+}
+
+function doDisconnect() { closeMenu(); wsClose(true); }
+
+function showConnect() {
+  if(term){term.dispose();term=null;}
+  window.removeEventListener('resize',doFit);
+  document.getElementById('terminal-screen').style.display='none';
+  document.getElementById('connect-screen').style.display='flex';
+  // reset to step 1
+  for(let i=1;i<=3;i++){
+    const p=document.getElementById('sp-'+i);
+    p.classList.remove('active','back'); p.style.display='none';
+  }
+  document.getElementById('sp-1').style.display='block';
+  document.getElementById('sp-1').classList.add('active');
+  updateStepIndicators(1);
+  currentStep=1; selectedProj=null; selectedTech=null; repoList=[]; stopClonePoller();
+  sessionId=''; sessions=[];
+}
+
+// ── Send helpers ──────────────────────────────────────────────────────────────
+function sendMsg(obj){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(obj));}
+function sendRaw(data){sendMsg({type:'input',data});}
+function sendCtrl(code){sendRaw(String.fromCharCode(code));}
+function newSession(){sendMsg({type:'new_session'});closeDrawer();}
+
+// ── Status UI ─────────────────────────────────────────────────────────────────
+function setStatus(s){
+  const dot=document.getElementById('s-dot'), lbl=document.getElementById('s-label');
+  dot.className='conn-dot '+s; lbl.className='conn-label '+s;
+  lbl.textContent={connected:'Conectado',connecting:'Conectando...',disconnected:'Desconectado',error:'Erro'}[s]||s;
+  updateTopSession();
+}
+function updateTopSession(){
+  const sep=document.getElementById('s-sep'),sess=document.getElementById('s-sess');
+  if(sessionId){sep.style.display='';sess.style.display='';sess.textContent=sessionId.slice(0,8);}
+  else{sep.style.display='none';sess.style.display='none';}
+}
+function setErr(m){document.getElementById('connect-err').textContent=m;}
+
+// ── Sessions drawer ───────────────────────────────────────────────────────────
+function openDrawer(){const bd=document.getElementById('drawer-backdrop');renderSessions();bd.classList.add('open');requestAnimationFrame(()=>bd.classList.add('visible'));}
+function closeDrawer(){const bd=document.getElementById('drawer-backdrop');bd.classList.remove('visible');setTimeout(()=>bd.classList.remove('open'),260);}
+function onBackdropClick(e){if(!document.getElementById('drawer').contains(e.target))closeDrawer();}
+function renderSessions(){
+  const list=document.getElementById('sessions-list');
+  if(!sessions.length){list.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nenhuma sessão ativa</p>';return;}
+  list.innerHTML=sessions.map(s=>`
+    <div class="session-item ${s.id===sessionId?'active':''}" onclick="switchSess('${s.id}')">
+      <div class="sess-dot" style="background:${s.alive?'var(--accent)':'var(--red)'}"></div>
+      <span class="sess-id">${s.id.slice(0,16)}</span>
+      ${s.id===sessionId?'<span class="sess-badge">ativa</span>':''}
+      <button class="sess-kill" onclick="killSess(event,'${s.id}')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
+}
+function switchSess(id){sendMsg({type:'switch_session',sessionId:id});closeDrawer();}
+function killSess(e,id){e.stopPropagation();sendMsg({type:'kill_session',sessionId:id});}
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+function toggleMenu(){document.getElementById('dropdown').classList.toggle('open');}
+function closeMenu(){document.getElementById('dropdown').classList.remove('open');}
+document.addEventListener('click',e=>{
+  if(!document.getElementById('menu-btn').contains(e.target)&&!document.getElementById('dropdown').contains(e.target))closeMenu();
+});
+function doClear(){if(term)term.clear();closeMenu();}
+function doCopy(){
+  if(!term)return;
+  const sel=term.getSelection();
+  if(sel)navigator.clipboard.writeText(sel).catch(()=>{});
+  closeMenu();
+}
+
+// ── Font size ─────────────────────────────────────────────────────────────────
+function changeFontSize(d){
+  fontSize=Math.max(9,Math.min(22,fontSize+d));
+  localStorage.setItem('tm_fs',fontSize);
+  document.getElementById('font-val').textContent=fontSize;
+  if(term){term.options.fontSize=fontSize;doFit();}
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.shiftKey&&e.key==='C'){const s=term&&term.getSelection();if(s)navigator.clipboard.writeText(s).catch(()=>{});e.preventDefault();}
+  if(e.key==='Escape'){closeMenu();closeDrawer();}
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('font-val').textContent = fontSize;
+
+// Auto-fill host/port/TLS when page is served via HTTP(S) (not opened as a local file)
+(function autoFill() {
+  const loc = window.location;
+  if (loc.protocol === 'file:') return; // opened locally, keep manual defaults
+  const isHttps = loc.protocol === 'https:';
+  const host = loc.hostname;
+  const port = loc.port || (isHttps ? '443' : '80');
+  document.getElementById('inp-host').value = host;
+  document.getElementById('inp-port').value = port;
+  if (isHttps) { tlsOn = true; document.getElementById('tls-track').classList.add('on'); }
+})();
+</script>
+</body>
+</html>

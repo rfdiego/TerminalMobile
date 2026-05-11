@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Terminal prompt > symbol -->
+    <path
+        android:fillColor="#4EC9B0"
+        android:pathData="M30,44 L50,54 L30,64 L34,64 L54,54 L34,44 Z" />
+    <!-- Underscore cursor -->
+    <path
+        android:fillColor="#4EC9B0"
+        android:pathData="M56,62 L78,62 L78,66 L56,66 Z" />
+</vector>

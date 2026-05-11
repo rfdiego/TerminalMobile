@@ -1,0 +1,4 @@
+-keep class com.terminalmobile.** { *; }
+-keep class okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**

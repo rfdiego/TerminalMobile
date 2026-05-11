@@ -1,0 +1,26 @@
+# ── Server ────────────────────────────────────────────────────────────────────
+server/node_modules/
+server/.env
+server/certs/
+
+# ── Android ───────────────────────────────────────────────────────────────────
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/**/*.iml
+android/.idea/
+
+# ── Build tools (downloaded by build-apk.ps1) ─────────────────────────────────
+.build-tools/
+
+# ── Claude Code internal ──────────────────────────────────────────────────────
+.claude/
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+*.suo
+*.user
