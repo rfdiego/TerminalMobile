@@ -1323,14 +1323,16 @@ document.addEventListener('keydown',e=>{
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.getElementById('font-val').textContent = fontSize;
 
-// Auto-fill host/port/TLS when page is served via HTTP(S) (not opened as a local file)
+// Auto-fill host/port/TLS when served directly by the server (same origin).
+// Skip on static hosting (GitHub Pages, Netlify, Vercel) — user fills manually.
 (function autoFill() {
   const loc = window.location;
-  if (loc.protocol === 'file:') return; // opened locally, keep manual defaults
+  if (loc.protocol === 'file:') return;
+  const h = loc.hostname;
+  if (h.endsWith('.github.io') || h.endsWith('.netlify.app') || h.endsWith('.vercel.app')) return;
   const isHttps = loc.protocol === 'https:';
-  const host = loc.hostname;
   const port = loc.port || (isHttps ? '443' : '80');
-  document.getElementById('inp-host').value = host;
+  document.getElementById('inp-host').value = h;
   document.getElementById('inp-port').value = port;
   if (isHttps) { tlsOn = true; document.getElementById('tls-track').classList.add('on'); }
 })();

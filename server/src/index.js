@@ -32,12 +32,12 @@ console.log('[Server] Ready on:');
 for (const list of Object.values(ifaces ?? {})) {
   for (const iface of list ?? []) {
     if (iface.family === 'IPv4' && !iface.internal) {
-      console.log(`  ws://${iface.address}:${PORT}   ← use this in Android app`);
+      console.log(`  ws://${iface.address}:${PORT}   ← rede local`);
     }
   }
 }
 console.log(`  ws://localhost:${PORT}`);
-console.log('[Server] Press Ctrl+C to stop\n');
+console.log('\n[Server] Press Ctrl+C to stop\n');
 
 function shutdown() {
   console.log('\n[Server] Shutting down...');

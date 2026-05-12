@@ -20,7 +20,7 @@ function jsonErr(res, code, msg) { res.writeHead(code, {'Content-Type':'applicat
 // ── HTTP request handler ───────────────────────────────────────────────────────
 const path = require('path');
 const fs   = require('fs');
-const HTML_PATH = path.join(__dirname, '..', '..', 'web-terminal.html');
+const HTML_PATH = path.join(__dirname, '..', '..', 'index.html');
 
 async function handleHttp(req, res, authToken) {
   setCors(res);
