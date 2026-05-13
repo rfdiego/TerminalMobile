@@ -115,6 +115,7 @@ async function fetchGithubRepos(token) {
         cloned: localNames.has(r.name),
         path: path.join(REPOS_DIR, r.name),
         homepage: r.homepage || '',
+        hasPages: !!r.has_pages,
       });
     }
     if (data.length < 100) break;

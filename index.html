@@ -1286,18 +1286,16 @@ function showConnect() {
 // ── Site button ───────────────────────────────────────────────────────────────
 function getSiteUrl() {
   if (!selectedProj) return null;
-  // 1. explicit homepage (package.json or GitHub API field)
+  // 1. explicit homepage set in package.json or GitHub repo settings
   if (selectedProj.homepage) return selectedProj.homepage;
-  // 2. GitHub repo page as fallback (always exists)
+  // 2. GitHub Pages confirmed by API (has_pages === true)
   const remote = selectedProj.remote || selectedProj.url || '';
   const ghMatch = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
-  if (ghMatch) {
+  if (ghMatch && selectedProj.hasPages) {
     const owner = ghMatch[1];
     const repo  = ghMatch[2].replace(/\.git$/, '');
-    return `https://github.com/${owner}/${repo}`;
+    return `https://${owner}.github.io/${repo}/`;
   }
-  // 3. any other http remote
-  if (remote.startsWith('http')) return remote.replace(/\.git$/, '');
   return null;
 }
 function openSite() {
