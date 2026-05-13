@@ -121,6 +121,20 @@ async function handleHttp(req, res, authToken) {
     return;
   }
 
+  // ── POST /api/create-repo ── create a new GitHub repo and clone it
+  if (req.method === 'POST' && url === '/api/create-repo') {
+    if (!json.name) { jsonErr(res, 400, 'name obrigatório'); return; }
+    const ghToken = (process.env.GITHUB_TOKEN || '').trim();
+    if (!ghToken) { jsonErr(res, 400, 'Nenhum token GitHub configurado'); return; }
+    try {
+      const repo = await repoManager.createRepo(json.name, ghToken, !!json.private);
+      // clone in background, don't wait
+      repoManager.cloneRepo(repo.url, repo.name).catch(() => {});
+      jsonOk(res, { repo });
+    } catch (e) { jsonErr(res, 400, e.message); }
+    return;
+  }
+
   // ── POST /api/clone-all ── clone all non-cloned repos in background
   if (req.method === 'POST' && url === '/api/clone-all') {
     try {

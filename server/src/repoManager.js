@@ -124,6 +124,51 @@ async function fetchGithubRepos(token) {
   return all;
 }
 
+// ── Create GitHub repo ─────────────────────────────────────────────────────────
+function httpsPost(url, token, body, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const u    = new URL(url);
+    const data = JSON.stringify(body);
+    const req  = https.request({
+      method: 'POST',
+      hostname: u.hostname, path: u.pathname + u.search,
+      headers: {
+        Authorization: 'token ' + token,
+        'User-Agent': 'TerminalMobile/1.0',
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data),
+      },
+    }, res => {
+      let buf = '';
+      res.on('data', c => buf += c);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, data: JSON.parse(buf) }); }
+        catch { resolve({ status: res.statusCode, data: buf }); }
+      });
+    });
+    const timer = setTimeout(() => { req.destroy(); reject(new Error('GitHub API timeout')); }, timeoutMs);
+    req.on('error', e => { clearTimeout(timer); reject(e); });
+    req.on('close', () => clearTimeout(timer));
+    req.write(data);
+    req.end();
+  });
+}
+
+async function createRepo(name, token, isPrivate = false) {
+  const { status, data } = await httpsPost('https://api.github.com/user/repos', token, {
+    name, private: isPrivate, auto_init: true,
+  });
+  if (status === 401) throw new Error('Token inválido ou expirado');
+  if (status === 422) throw new Error('Repositório já existe ou nome inválido');
+  if (status !== 201) throw new Error((data && data.message) || 'Erro ao criar repositório');
+  return {
+    name: data.name, fullName: data.full_name,
+    url: data.clone_url, private: data.private,
+    path: path.join(REPOS_DIR, data.name),
+  };
+}
+
 // ── Clone ──────────────────────────────────────────────────────────────────────
 function cloneRepo(url, name) {
   return new Promise((resolve, reject) => {
@@ -169,4 +214,4 @@ async function cloneAll(repos) {
   cloneState.current = null;
 }
 
-module.exports = { scanLocalRepos, fetchGithubRepos, cloneRepo, cloneAll, cloneState, updateEnv, REPOS_DIR };
+module.exports = { scanLocalRepos, fetchGithubRepos, createRepo, cloneRepo, cloneAll, cloneState, updateEnv, REPOS_DIR };
