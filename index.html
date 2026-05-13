@@ -1175,15 +1175,16 @@ function initTerm() {
     fontFamily:'"JetBrains Mono","Fira Code","Cascadia Code","Courier New",monospace',
     fontSize, lineHeight:1.25, cursorBlink:true, scrollback:8000,
     convertEol:false, allowTransparency:false, macOptionIsMeta:true,
+    disableStdin: true,
   });
   fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById('xterm'));
   doFit();
-  term.onData(d => sendRaw(d));
   term.onResize(({cols,rows}) => sendMsg({type:'resize',cols,rows}));
   term.onScroll(() => checkScrollFab());
   window.addEventListener('resize', doFit);
+  setTimeout(() => document.getElementById('term-input')?.focus(), 100);
 }
 
 function doFit() { if(fit&&term) try{fit.fit()}catch(e){} }
