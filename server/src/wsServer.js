@@ -30,7 +30,10 @@ async function handleHttp(req, res, authToken) {
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
     try {
       const html = fs.readFileSync(HTML_PATH);
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
       res.end(html);
     } catch { res.writeHead(404); res.end('web-terminal.html not found'); }
     return;
