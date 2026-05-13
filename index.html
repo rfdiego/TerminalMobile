@@ -983,9 +983,10 @@ function resetStep3() {
 // Launch steps definition
 function getLaunchSteps() {
   return [
-    { label: 'Projeto selecionado',   sub: selectedProj?.name || '',          duration:  700 },
-    { label: 'Navegando para pasta',  sub: selectedProj?.path || '',          duration:  800 },
-    { label: 'Iniciando ' + (selectedTech?.name || ''), sub: selectedTech?.command || '', duration: 1000 },
+    { label: 'Projeto selecionado',       sub: selectedProj?.name || '',          duration:  700 },
+    { label: 'Navegando para pasta',      sub: selectedProj?.path || '',          duration: 1000 },
+    { label: 'Atualizando repositório',   sub: 'git pull',                        duration: 2500 },
+    { label: 'Iniciando ' + (selectedTech?.name || ''), sub: selectedTech?.command || '', duration: 1200 },
   ];
 }
 
@@ -1215,9 +1216,14 @@ function doConnect() {
           if (siteDiv) siteDiv.style.display = show; }
         if (selectedTech) {
           const cmd = selectedProj?.path
-            ? `cd "${selectedProj.path}"; cls; ${selectedTech.command.trimEnd()}\r`
-            : `cls; ${selectedTech.command.trimEnd()}\r`;
-          setTimeout(() => sendRaw(cmd), 400);
+            ? `cd "${selectedProj.path}"; ${selectedTech.command.trimEnd()}\r`
+            : `${selectedTech.command.trimEnd()}\r`;
+          setTimeout(() => {
+            sendRaw(cmd);
+            // reset xterm after cd runs but before Claude finishes initializing,
+            // so the user never sees the echoed command line
+            setTimeout(() => { if (term) term.reset(); }, 500);
+          }, 400);
         }
         break;
       case 'auth_failed':
