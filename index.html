@@ -623,6 +623,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
     </div>
   </div>
   <div class="quick-bar">
+    <button class="qkey" id="btn-site" onclick="openSite()" style="display:none">Site</button>
+    <div class="qkey-divider" id="div-site" style="display:none"></div>
     <button class="qkey accent" onclick="sendCtrl(3)">Ctrl+C</button>
     <button class="qkey" onclick="sendCtrl(4)">Ctrl+D</button>
     <button class="qkey" onclick="sendRaw('\t')">Tab</button>
@@ -981,10 +983,9 @@ function resetStep3() {
 // Launch steps definition
 function getLaunchSteps() {
   return [
-    { label: 'Projeto selecionado',       sub: selectedProj?.name || '',          duration:  700 },
-    { label: 'Navegando para a pasta',    sub: selectedProj?.path || '',          duration: 1000 },
-    { label: 'Atualizando repositório',   sub: 'git pull',                        duration: 2500 },
-    { label: 'Iniciando ' + (selectedTech?.name || ''), sub: selectedTech?.command || '', duration: 1200 },
+    { label: 'Projeto selecionado',   sub: selectedProj?.name || '',          duration:  700 },
+    { label: 'Navegando para pasta',  sub: selectedProj?.path || '',          duration:  800 },
+    { label: 'Iniciando ' + (selectedTech?.name || ''), sub: selectedTech?.command || '', duration: 1000 },
   ];
 }
 
@@ -1207,10 +1208,15 @@ function doConnect() {
         clearTimeout(_authTimer);
         sessionId = msg.sessionId; sessions = msg.sessions||[];
         setStatus('connected'); renderSessions();
+        { const show = getSiteUrl() ? '' : 'none';
+          const siteBtn = document.getElementById('btn-site');
+          const siteDiv = document.getElementById('div-site');
+          if (siteBtn) siteBtn.style.display = show;
+          if (siteDiv) siteDiv.style.display = show; }
         if (selectedTech) {
           const cmd = selectedProj?.path
-            ? `cd "${selectedProj.path}"; git pull; ${selectedTech.command.trimEnd()}\r`
-            : selectedTech.command.trimEnd() + '\r';
+            ? `cd "${selectedProj.path}"; cls; ${selectedTech.command.trimEnd()}\r`
+            : `cls; ${selectedTech.command.trimEnd()}\r`;
           setTimeout(() => sendRaw(cmd), 400);
         }
         break;
@@ -1271,6 +1277,28 @@ function showConnect() {
   currentStep=1; selectedProj=null; selectedTech=null; repoList=[]; stopClonePoller();
   sessionId=''; sessions=[];
   resetStep3UI();
+  const siteBtn = document.getElementById('btn-site');
+  const siteDiv = document.getElementById('div-site');
+  if (siteBtn) siteBtn.style.display = 'none';
+  if (siteDiv) siteDiv.style.display = 'none';
+}
+
+// ── Site button ───────────────────────────────────────────────────────────────
+function getSiteUrl() {
+  if (!selectedProj) return null;
+  const remote = selectedProj.remote || selectedProj.url || '';
+  const ghMatch = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+  if (ghMatch) {
+    const owner = ghMatch[1];
+    const repo  = ghMatch[2].replace(/\.git$/, '');
+    return `https://${owner}.github.io/${repo}/`;
+  }
+  if (remote.startsWith('http')) return remote.replace(/\.git$/, '');
+  return null;
+}
+function openSite() {
+  const url = getSiteUrl();
+  if (url) window.open(url, '_blank', 'noopener');
 }
 
 // ── Send helpers ──────────────────────────────────────────────────────────────
