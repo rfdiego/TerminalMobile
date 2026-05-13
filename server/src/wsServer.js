@@ -128,8 +128,8 @@ async function handleHttp(req, res, authToken) {
     if (!ghToken) { jsonErr(res, 400, 'Nenhum token GitHub configurado'); return; }
     try {
       const repo = await repoManager.createRepo(json.name, ghToken, !!json.private);
-      // clone in background, don't wait
-      repoManager.cloneRepo(repo.url, repo.name).catch(() => {});
+      await repoManager.cloneRepo(repo.url, repo.name);
+      repo.cloned = true;
       jsonOk(res, { repo });
     } catch (e) { jsonErr(res, 400, e.message); }
     return;

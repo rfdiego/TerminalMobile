@@ -164,8 +164,10 @@ async function createRepo(name, token, isPrivate = false) {
   if (status !== 201) throw new Error((data && data.message) || 'Erro ao criar repositório');
   return {
     name: data.name, fullName: data.full_name,
-    url: data.clone_url, private: data.private,
-    path: path.join(REPOS_DIR, data.name),
+    url: data.clone_url, remote: data.clone_url,
+    private: data.private, desc: data.description || '',
+    language: data.language || '', homepage: data.homepage || '',
+    cloned: false, path: path.join(REPOS_DIR, data.name),
   };
 }
 

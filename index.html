@@ -988,7 +988,8 @@ async function confirmNewRepo() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro ' + res.status);
     closeNewRepoModal();
-    await loadRepos();
+    repoList.unshift(data.repo);
+    renderRepos();
   } catch(e) {
     errEl.textContent = e.message;
   } finally {
