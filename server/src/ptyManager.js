@@ -124,12 +124,8 @@ class PtyManager {
   }
 
   create(id, options = {}) {
-    // purge dead sessions before checking limit
     for (const [sid, s] of this.sessions) {
       if (!s.alive) this.sessions.delete(sid);
-    }
-    if (this.sessions.size >= this.maxSessions) {
-      throw new Error(`Max sessions (${this.maxSessions}) reached`);
     }
     const session = new Session(id, options);
     this.sessions.set(id, session);
