@@ -70,10 +70,10 @@ function scanLocalRepos() {
 }
 
 // ── GitHub API ─────────────────────────────────────────────────────────────────
-function httpsGet(url, token) {
+function httpsGet(url, token, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
-    https.request({
+    const req = https.request({
       hostname: u.hostname, path: u.pathname + u.search,
       headers: { Authorization: 'token ' + token, 'User-Agent': 'TerminalMobile/1.0', Accept: 'application/vnd.github.v3+json' },
     }, res => {
@@ -83,7 +83,11 @@ function httpsGet(url, token) {
         try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
         catch  { resolve({ status: res.statusCode, data: body }); }
       });
-    }).on('error', reject).end();
+    });
+    const timer = setTimeout(() => { req.destroy(); reject(new Error('GitHub API timeout')); }, timeoutMs);
+    req.on('error', (e) => { clearTimeout(timer); reject(e); });
+    req.on('close', () => clearTimeout(timer));
+    req.end();
   });
 }
 

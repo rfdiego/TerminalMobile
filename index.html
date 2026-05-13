@@ -763,18 +763,17 @@ async function loadRepos() {
   const list = document.getElementById('project-list');
   list.innerHTML = '<div class="proj-loading"><div class="ld-spin"></div><span>Buscando projetos...</span></div>';
   try {
-    const res  = await fetch(apiUrl('/api/repos'), { headers: apiHeaders() });
+    const res  = await fetch(apiUrl('/api/repos'), { headers: apiHeaders(), signal: AbortSignal.timeout(12000) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
     repoList = data.repos || [];
-    // show/hide GitHub button depending on whether server already has token
     document.querySelector('.btn-gh').style.display = data.hasGithubToken ? 'none' : '';
     renderRepos();
-    // auto-start clone-all for non-cloned repos
     const hasUncloned = repoList.some(r => !r.cloned);
     if (hasUncloned) startCloneAll();
   } catch (e) {
-    list.innerHTML = `<div class="proj-empty">Erro ao carregar:<br><small>${e.message}</small></div>`;
+    const msg = e.name === 'TimeoutError' ? 'Tempo esgotado ao carregar projetos.' : e.message;
+    list.innerHTML = `<div class="proj-empty">Erro ao carregar:<br><small>${msg}</small><br><br><button class="btn-next" style="max-width:160px;height:36px;font-size:13px" onclick="loadRepos()">Tentar novamente</button></div>`;
   }
 }
 
@@ -1166,6 +1165,8 @@ function toggleTLS() {
 }
 
 // ── Connect ───────────────────────────────────────────────────────────────────
+let _authTimer = null;
+
 function doConnect() {
   const host  = document.getElementById('inp-host').value.trim();
   const port  = document.getElementById('inp-port').value.trim();
@@ -1180,15 +1181,21 @@ function doConnect() {
   const url = (tlsOn ? 'wss' : 'ws') + '://' + host + ':' + port;
   try { ws = new WebSocket(url); } catch(e) { onWsError('URL inválida'); return; }
 
+  // timeout if auth_success never arrives
+  _authTimer = setTimeout(() => {
+    if (ws && ws.readyState !== WebSocket.OPEN) return;
+    onWsError('Servidor não respondeu à autenticação. Tente novamente.');
+  }, 12000);
+
   ws.onopen = () => { sendMsg({type:'auth', token, cols:term.cols, rows:term.rows}); };
 
   ws.onmessage = e => {
     let msg; try{msg=JSON.parse(e.data);}catch{return;}
     switch(msg.type) {
       case 'auth_success':
+        clearTimeout(_authTimer);
         sessionId = msg.sessionId; sessions = msg.sessions||[];
         setStatus('connected'); renderSessions();
-        // cd → git pull → launch tech
         if (selectedTech) {
           const cmd = selectedProj?.path
             ? `cd "${selectedProj.path}"; git pull; ${selectedTech.command.trimEnd()}\r`
@@ -1197,6 +1204,7 @@ function doConnect() {
         }
         break;
       case 'auth_failed':
+        clearTimeout(_authTimer);
         term.writeln('\r\n\x1b[31m[Auth falhou: '+(msg.message||'')+']\x1b[0m');
         wsClose(true); break;
       case 'output': if(term) term.write(msg.data); break;
@@ -1213,12 +1221,13 @@ function doConnect() {
   };
 
   ws.onclose = e => {
+    clearTimeout(_authTimer);
     setStatus('error');
     if(term) term.writeln('\r\n\x1b[90m[Desconectado (código '+e.code+') — atualize para reconectar]\x1b[0m');
     ws=null;
   };
 
-  ws.onerror = () => onWsError('Não foi possível conectar. Verifique host, porta e se o servidor está rodando.');
+  ws.onerror = () => { clearTimeout(_authTimer); onWsError('Não foi possível conectar. Verifique host, porta e se o servidor está rodando.'); };
 }
 
 function onWsError(msg) {
