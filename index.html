@@ -1216,14 +1216,9 @@ function doConnect() {
           if (siteDiv) siteDiv.style.display = show; }
         if (selectedTech) {
           const cmd = selectedProj?.path
-            ? `cd "${selectedProj.path}"; ${selectedTech.command.trimEnd()}\r`
-            : `${selectedTech.command.trimEnd()}\r`;
-          setTimeout(() => {
-            sendRaw(cmd);
-            // reset xterm after cd runs but before Claude finishes initializing,
-            // so the user never sees the echoed command line
-            setTimeout(() => { if (term) term.reset(); }, 500);
-          }, 400);
+            ? `cd "${selectedProj.path}"; git pull; ${selectedTech.command.trimEnd()}\r`
+            : selectedTech.command.trimEnd() + '\r';
+          setTimeout(() => sendRaw(cmd), 400);
         }
         break;
       case 'auth_failed':
