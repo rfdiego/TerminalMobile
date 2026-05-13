@@ -382,6 +382,28 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .qkey svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .qkey-divider{width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px}
 
+/* ── Input bar ── */
+.input-bar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--s2);border-top:1px solid var(--border);flex-shrink:0}
+.input-bar-field{
+  flex:1;background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;
+  padding:9px 12px;color:var(--text);
+  font-family:'JetBrains Mono','Fira Code','Courier New',monospace;
+  font-size:14px;outline:none;-webkit-appearance:none;min-width:0;
+  transition:border .15s,box-shadow .15s;
+}
+.input-bar-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.input-bar-field::placeholder{color:var(--text3)}
+.btn-send{
+  flex-shrink:0;height:38px;padding:0 14px;border:none;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#000;font-size:13px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:5px;
+  transition:opacity .15s,transform .1s;
+}
+.btn-send:hover{opacity:.9}
+.btn-send:active{transform:scale(.97)}
+.btn-send svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
 /* ── Sessions Drawer ── */
 .drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:20;display:none;opacity:0;transition:opacity .25s}
 .drawer-backdrop.open{display:block}
@@ -621,6 +643,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
     <div class="fab-bottom" id="fab-scroll" onclick="scrollBottom()">
       <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
+  </div>
+  <div class="input-bar">
+    <input class="input-bar-field" id="term-input" type="text"
+      placeholder="Digite um comando e pressione Enviar..."
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      onkeydown="onTermInputKey(event)"/>
+    <button class="btn-send" onclick="sendTermInput()">
+      <svg viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+      Enviar
+    </button>
   </div>
   <div class="quick-bar">
     <button class="qkey" id="btn-site" onclick="openSite()" style="display:none">Site</button>
@@ -1303,6 +1335,43 @@ function getSiteUrl() {
 function openSite() {
   const url = getSiteUrl();
   if (url) window.open(url, '_blank', 'noopener');
+}
+
+// ── Terminal input bar ────────────────────────────────────────────────────────
+let _inputHistory = [];
+let _historyIdx   = -1;
+
+function onTermInputKey(e) {
+  const inp = document.getElementById('term-input');
+  if (e.key === 'Enter') { sendTermInput(); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (_historyIdx < _inputHistory.length - 1) {
+      _historyIdx++;
+      inp.value = _inputHistory[_historyIdx];
+      setTimeout(() => inp.setSelectionRange(inp.value.length, inp.value.length), 0);
+    }
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (_historyIdx > 0) { _historyIdx--; inp.value = _inputHistory[_historyIdx]; }
+    else if (_historyIdx === 0) { _historyIdx = -1; inp.value = ''; }
+    return;
+  }
+}
+
+function sendTermInput() {
+  const inp = document.getElementById('term-input');
+  const val = inp.value;
+  if (val && (_inputHistory.length === 0 || _inputHistory[0] !== val)) {
+    _inputHistory.unshift(val);
+    if (_inputHistory.length > 50) _inputHistory.pop();
+  }
+  _historyIdx = -1;
+  sendRaw(val + '\r');
+  inp.value = '';
+  inp.focus();
 }
 
 // ── Send helpers ──────────────────────────────────────────────────────────────
