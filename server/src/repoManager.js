@@ -64,7 +64,12 @@ function scanLocalRepos() {
         encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000,
       }).trim();
     } catch {}
-    repos.push({ name: e.name, path: rpath, remote, language: detectLanguage(rpath), cloned: true });
+    let homepage = '';
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(rpath, 'package.json'), 'utf8'));
+      homepage = pkg.homepage || '';
+    } catch {}
+    repos.push({ name: e.name, path: rpath, remote, language: detectLanguage(rpath), cloned: true, homepage });
   }
   return repos;
 }
@@ -109,6 +114,7 @@ async function fetchGithubRepos(token) {
         updatedAt: r.updated_at, stars: r.stargazers_count, fork: r.fork,
         cloned: localNames.has(r.name),
         path: path.join(REPOS_DIR, r.name),
+        homepage: r.homepage || '',
       });
     }
     if (data.length < 100) break;
