@@ -747,6 +747,7 @@ let currentStep    = 1;
 let goingBack      = false;
 let repoList       = [];     // loaded repos for step 2
 let ghToken        = localStorage.getItem('tm_gh_token') || '';
+let _launchTimers  = [];
 
 // server base URL (set when user fills step 1)
 let serverBase     = '';
@@ -997,17 +998,29 @@ function iconDone() {
   return `<div class="ls-icon checked"><div class="ls-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
 }
 
+function clearLaunchTimers() {
+  _launchTimers.forEach(t => clearTimeout(t));
+  _launchTimers = [];
+}
+
+function resetStep3UI() {
+  clearLaunchTimers();
+  document.getElementById('launch-seq').style.display    = 'none';
+  document.getElementById('launch-seq').innerHTML        = '';
+  document.getElementById('tech-grid').style.display     = '';
+  document.getElementById('step3-label').textContent     = 'Escolha a tecnologia para iniciar o terminal';
+  document.getElementById('step3-nav').querySelector('.btn-back').onclick = () => goStep(2);
+}
+
 function selectTech(id) {
   selectedTech = TECHS.find(t => t.id === id);
 
-  // hide tech grid, show sequence
   document.getElementById('tech-grid').style.display  = 'none';
   document.getElementById('step3-label').textContent  = 'Iniciando sessão...';
-  // disable back button during launch
   document.getElementById('step3-nav').querySelector('.btn-back').onclick = () => {};
 
-  const steps   = getLaunchSteps();
-  const seq     = document.getElementById('launch-seq');
+  const steps = getLaunchSteps();
+  const seq   = document.getElementById('launch-seq');
   seq.style.display = 'block';
   seq.innerHTML = steps.map((s, i) => `
     <div class="launch-step" id="ls-${i}">
@@ -1018,28 +1031,26 @@ function selectTech(id) {
       </div>
     </div>`).join('');
 
+  clearLaunchTimers();
   let delay = 200;
   steps.forEach((step, i) => {
-    // activate
-    setTimeout(() => {
+    _launchTimers.push(setTimeout(() => {
       const el = document.getElementById('ls-' + i);
       if (!el) return;
       el.classList.add('active');
       el.querySelector('.ls-icon').outerHTML = iconSpinning();
-    }, delay);
+    }, delay));
     delay += step.duration;
-    // complete
-    setTimeout(() => {
+    _launchTimers.push(setTimeout(() => {
       const el = document.getElementById('ls-' + i);
       if (!el) return;
       el.classList.remove('active');
       el.classList.add('done');
       el.querySelector('.ls-icon').outerHTML = iconDone();
-    }, delay - 150);
+    }, delay - 150));
   });
 
-  // open terminal after all steps
-  setTimeout(() => doConnect(), delay);
+  _launchTimers.push(setTimeout(() => doConnect(), delay));
 }
 
 // ── Step 1 validation ─────────────────────────────────────────────────────────
@@ -1098,7 +1109,7 @@ function goStep(n) {
   currentStep = n;
 
   if (n === 2) loadRepos();
-  if (n === 3) renderTechs();
+  if (n === 3) { resetStep3UI(); renderTechs(); }
 }
 
 function updateStepIndicators(active) {
@@ -1259,6 +1270,7 @@ function showConnect() {
   updateStepIndicators(1);
   currentStep=1; selectedProj=null; selectedTech=null; repoList=[]; stopClonePoller();
   sessionId=''; sessions=[];
+  resetStep3UI();
 }
 
 // ── Send helpers ──────────────────────────────────────────────────────────────
